@@ -1,0 +1,103 @@
+#!/bin/bash
+
+mkdir -p "$HOME/.local/bin"
+
+cp quickfetch ~/.local/bin/quickfetch
+chmod +x ~/.local/bin/quickfetch
+
+pIP=$(curl -s ifconfig.me)
+
+kernel=$(uname -r)
+
+shell=$SHELL
+
+lIP=$(ip addr | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | cut -d'/' -f1 | head -1)
+
+RES=$(if [ "$XDG_SESSION_TYPE" = "wayland" ]; then wlr-randr | grep current | awk '{print $1}'; else xrandr; fi)
+
+while true; do
+	clear
+	huser="$(whoami)@$HOSTNAME"
+	lengh=${#huser}
+	
+	os=$(grep "^PRETTY_NAME=" /etc/os-release | cut -d'"' -f2)
+	
+	os_id=$(grep "^ID=" /etc/os-release | cut -d'=' -f2 | tr -d '"')
+	
+	if [ "$1" = "--logo" ] && [ -n "$2" ]; then
+		os_id="$2"
+	fi
+	
+	first_letter="${os_id:0:1}"
+	logo_file=$(find "$(dirname "$0")/assets_quickfetch/${first_letter}" -iname "${os_id}.txt" 2>/dev/null | head -1)
+	
+	if [ -n "$logo_file" ] && [ -f "$logo_file" ]; then
+	    logo=$(sed 's/\$[0-9]//g' "$logo_file")
+	else
+	    logo="(no logo: $os_id found)"
+	fi
+	
+	if command -v pacman &> /dev/null; then
+		packages=$(pacman -Q | wc -l)
+		pm_name="pacman"
+	elif command -v dpkg &> /dev/null; then
+		packages=$(dpkg -l | grep '^ii' | wc -l)
+		pm_name="dpkg"
+	elif command -v rpm &> /dev/null; then
+		packages=$(rpm -qa | wc -l)
+		pm_name="rpm"
+	else
+	    packages="unknown"
+	    pm_name="unknown"
+	fi
+	
+	info=$(cat <<- EOF
+	$huser
+	$(for sym in $(seq 0 $((lengh - 1))); do printf "-"; done)
+	SOFTWARE-INFO
+	    --	Kernel:			$kernel
+	    --	OS:			$os
+	    --	Shell:			$shell
+	    --	Host:			$HOSTNAME
+	    --	USR:			$(whoami)
+	    --	LOCAL-IP:		$lIP
+	    --	PUBLIC-IP:		$pIP
+	
+	HARDWARE-INFO
+	    --	Disk:			$(df -h / | awk 'NR==2 {print $3 " / " $2}')
+	    --	RAM:			$(free -h | awk 'NR==2 {print $3 " / " $2}')
+	    --	CPU:			$(grep 'model name' /proc/cpuinfo | head -1 | cut -d':' -f2 | xargs) ($(nproc) cores)
+	    --	CPU-architecture:	$(uname -m)
+	    --	Res:			$RES
+	    --	Power:			$(cat /sys/class/power_supply/BAT0/capacity)%
+	
+	SESSION-INFO
+	    --	WM:			$XDG_CURRENT_DESKTOP
+	    --	Session:		$XDG_SESSION_TYPE
+	    --	Terminal:		$TERM
+	    --	Package-Manager:	$pm_name
+	    --	Packages:		$packages
+	    --	Uptime:			$(uptime -p)
+
+	------------------------------------------------------
+			To Quit Press "q"
+
+	EOF
+	)
+	
+	echo "$logo" > /tmp/qf_logo.txt
+	echo "$info" > /tmp/qf_info.txt
+	
+	paste /tmp/qf_logo.txt /tmp/qf_info.txt | awk -F'\t' '{
+	    rest = $2
+	    for (i = 3; i <= NF; i++) rest = rest "\t" $i
+	    printf "\033[1;36m%-40s\033[0m%s\n", $1, rest
+	}'
+
+	read -t 3 -n 1 taste
+	if [ "$taste" = "q" ]; then
+		break
+	fi
+
+	sleep 3
+done
