@@ -1,6 +1,6 @@
 # quickfetch
 
-> ⚠️ **Alpha version** – works, but some features (e.g. resolution display on Wayland) are still incomplete or only tested on certain compositors.
+> ⚠️ **BETA version** – works, but some features (e.g. resolution display on Wayland) are still incomplete or only tested on certain compositors.
 
 A simple system info tool written in Bash, in the style of `fastfetch`/`neofetch`. Displays system, hardware, and session information alongside a matching ASCII logo.
 
@@ -18,7 +18,7 @@ A simple system info tool written in Bash, in the style of `fastfetch`/`neofetch
 
 ```bash
 git clone https://github.com/YOUR_NAME/quickfetch.git
-cd quickfetch
+cd quickfetch (or quickfetch/quickfetch)
 chmod +x install.sh
 ./install.sh
 ```
@@ -45,7 +45,7 @@ quickfetch --logo arch  # manually set the logo
 - ASCII logo matching the detected distro
 - Live-update mode (refreshes automatically)
 
-## Known limitations (Alpha)
+## Known limitations (Beta)
 
 - Resolution display on Wayland only works with `wlr-randr`-compatible compositors (e.g. Sway, Hyprland) – not currently supported on GNOME/KDE
 - Battery display assumes `/sys/class/power_supply/BAT0/`; won't work with a different naming (e.g. `BAT1`) or on desktop PCs without a battery
@@ -57,3 +57,15 @@ The ASCII logos in `assets_quickfetch/` are taken from the [fastfetch](https://g
 ## License
 
 This project is licensed under the MIT License, see [LICENSE](LICENSE).
+
+## Updates
+
+- Automatic color recognition for every logo
+- Showing if AC is plugged in
+- disables live-update-mode with "q"
+
+## Fixes
+
+- Fixed local IP not showing
+- Fixed not showing the correct packetmanager
+- Fixed res not showing (if not found then it says "not avaidable")

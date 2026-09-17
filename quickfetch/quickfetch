@@ -1,103 +1,169 @@
 #!/bin/bash
 
-mkdir -p "$HOME/.local/bin"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
-cp quickfetch ~/.local/bin/quickfetch
-chmod +x ~/.local/bin/quickfetch
+os=$(grep "^PRETTY_NAME=" /etc/os-release | cut -d'"' -f2)
+
+os_id=$(grep "^ID=" /etc/os-release | cut -d'=' -f2 | tr -d '"')
+
+if [ "$1" = "--logo" ] && [ -n "$2" ]; then
+	os_id="$2"
+fi
+
+first_letter="${os_id:0:1}"
+logo_file=$(find "$SCRIPT_DIR/assets_quickfetch/${first_letter}" -iname "${os_id}.txt" 2>/dev/null | head -1)
+
+if [ -n "$logo_file" ] && [ -f "$logo_file" ]; then
+	color_line=$(grep "^${os_id}:" "$SCRIPT_DIR/assets_quickfetch/colors.txt")
+	col1=$(echo "$color_line" | cut -d':' -f2)
+	col2=$(echo "$color_line" | cut -d':' -f3)
+
+	if [ -z "$col1" ]; then col1="36"; fi
+	if [ -z "$col2" ]; then col2="36"; fi
+
+	COLOR1=$(printf '\033[1;%sm' "$col1")
+	COLOR2=$(printf '\033[1;%sm' "$col2")
+	RST=$(printf '\033[0m')
+
+	logo=$(sed "s/\$1/${COLOR1}/g; s/\$2/${COLOR2}/g" "$logo_file")
+	logo=$(awk -v c1="$COLOR1" -v rst="$RST" '
+	BEGIN { cur = c1 }
+	{
+		line = $0
+		lastcode = cur
+		while (match(line, /\033\[[0-9;]*m/)) {
+			lastcode = substr(line, RSTART, RLENGTH)
+			line = substr(line, RSTART + RLENGTH)
+		}
+	print cur $0 rst
+	cur = lastcode
+	}' <<< "$logo")
+else
+	logo="(no logo: $os_id found)"
+fi
+
+lIP=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+')
+if [ -z "$lIP" ]; then
+	lIP=$(ip addr show | grep "inet " | grep -v 127.0.0.1 | grep -oP '\d+\.\d+\.\d+\.\d+' | head -1)
+fi
+
+if [ -z "$lIP" ]; then
+	lIP=$(ip route get 2606:4700:4700::1111 2>/dev/null | grep -oP 'src \K\S+')
+fi
+
+if [ -z "$lIP" ]; then
+	lIP="not connected"
+fi
 
 pIP=$(curl -s ifconfig.me)
 
 kernel=$(uname -r)
 
-shell=$SHELL
+shell=$(ps -p $$ -o comm=)
 
-lIP=$(ip addr | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | cut -d'/' -f1 | head -1)
+RES=$(if [ "$XDG_SESSION_TYPE" = "wayland" ]; then
+	wlr-randr 2>/dev/null | grep current | awk '{print $1}'
+else
+	xrandr 2>/dev/null | grep " connected" | head -1 | grep -oP '\d+x\d+'
+fi)
 
-RES=$(if [ "$XDG_SESSION_TYPE" = "wayland" ]; then wlr-randr | grep current | awk '{print $1}'; else xrandr; fi)
+if [ -z "$RES" ]; then
+	RES="not available"
+fi
 
 while true; do
 	clear
 	huser="$(whoami)@$HOSTNAME"
 	lengh=${#huser}
-	
-	os=$(grep "^PRETTY_NAME=" /etc/os-release | cut -d'"' -f2)
-	
-	os_id=$(grep "^ID=" /etc/os-release | cut -d'=' -f2 | tr -d '"')
-	
-	if [ "$1" = "--logo" ] && [ -n "$2" ]; then
-		os_id="$2"
-	fi
-	
-	first_letter="${os_id:0:1}"
-	logo_file=$(find "$(dirname "$0")/assets_quickfetch/${first_letter}" -iname "${os_id}.txt" 2>/dev/null | head -1)
-	
-	if [ -n "$logo_file" ] && [ -f "$logo_file" ]; then
-	    logo=$(sed 's/\$[0-9]//g' "$logo_file")
+
+	if [ "$(cat /sys/class/power_supply/AC/online)" = "1" ]; then
+		charging=" [ AC Connected ]"
 	else
-	    logo="(no logo: $os_id found)"
+		charging=" [ Discharging ]"
 	fi
-	
+
+	pm_info=""
+
 	if command -v pacman &> /dev/null; then
-		packages=$(pacman -Q | wc -l)
-		pm_name="pacman"
-	elif command -v dpkg &> /dev/null; then
-		packages=$(dpkg -l | grep '^ii' | wc -l)
-		pm_name="dpkg"
-	elif command -v rpm &> /dev/null; then
-		packages=$(rpm -qa | wc -l)
-		pm_name="rpm"
-	else
-	    packages="unknown"
-	    pm_name="unknown"
+		count=$(pacman -Q | wc -l)
+		pm_info+="pacman ($count) "
 	fi
-	
+
+	if command -v dnf &> /dev/null; then
+		count=$(dnf list installed 2>/dev/null | wc -l)
+		pm_info+="dnf ($count) "
+	fi
+
+	if command -v flatpak &> /dev/null; then
+		count=$(flatpak list --app 2>/dev/null | wc -l)
+		pm_info+="flatpak ($count) "
+	fi
+
+	if command -v apt &> /dev/null; then
+		count=$(apt list --installed 2>/dev/null | tail -n +2 | wc -l)
+		pm_info+="apt ($count) "
+	fi
+
+	if command -v dpkg &> /dev/null; then
+		count=$(dpkg-query -W -f='${binary:Package}\n' 2>/dev/null | wc -l)
+		pm_info+="dpkg ($count) "
+	fi
+
+	if [ -z "$pm_info" ]; then
+		pm_info="unknown"
+	fi
+
 	info=$(cat <<- EOF
-	$huser
-	$(for sym in $(seq 0 $((lengh - 1))); do printf "-"; done)
-	SOFTWARE-INFO
-	    --	Kernel:			$kernel
-	    --	OS:			$os
-	    --	Shell:			$shell
-	    --	Host:			$HOSTNAME
-	    --	USR:			$(whoami)
-	    --	LOCAL-IP:		$lIP
-	    --	PUBLIC-IP:		$pIP
+		${COLOR1}$huser${RST}
+		${COLOR1}$(for sym in $(seq 0 $((lengh - 1))); do printf "-"; done)${RST}
+		${COLOR1}SOFTWARE-INFO${RST}
+		    --	Kernel:			$kernel
+		    --	OS:			$os
+		    --	Shell:			$shell
+		    --	Host:			$HOSTNAME
+		    --	USR:			$(whoami)
+		    --	LOCAL-IP:		$lIP
+		    --	PUBLIC-IP:		$pIP
 	
-	HARDWARE-INFO
-	    --	Disk:			$(df -h / | awk 'NR==2 {print $3 " / " $2}')
-	    --	RAM:			$(free -h | awk 'NR==2 {print $3 " / " $2}')
-	    --	CPU:			$(grep 'model name' /proc/cpuinfo | head -1 | cut -d':' -f2 | xargs) ($(nproc) cores)
-	    --	CPU-architecture:	$(uname -m)
-	    --	Res:			$RES
-	    --	Power:			$(cat /sys/class/power_supply/BAT0/capacity)%
+		${COLOR1}HARDWARE-INFO${RST}
+		    --	Disk:			$(df -h / | awk 'NR==2 {print $3 " / " $2}')
+		    --	RAM:			$(free -h | awk 'NR==2 {print $3 " / " $2}')
+		    --	CPU:			$(grep 'model name' /proc/cpuinfo | head -1 | cut -d':' -f2 | xargs) ($(nproc) cores)
+		    --	CPU-architecture:	$(uname -m)
+		    --	Res:			$RES
+		    --	Power:			$(cat /sys/class/power_supply/BAT0/capacity)% $charging
+		
+		${COLOR1}SESSION-INFO${RST}
+		    --	WM:			$XDG_CURRENT_DESKTOP
+		    --	Session:		$XDG_SESSION_TYPE
+		    --	Terminal:		$TERM
+		    --	Package-Manager:	$pm_info
+		    --	Uptime:			$(uptime -p)
 	
-	SESSION-INFO
-	    --	WM:			$XDG_CURRENT_DESKTOP
-	    --	Session:		$XDG_SESSION_TYPE
-	    --	Terminal:		$TERM
-	    --	Package-Manager:	$pm_name
-	    --	Packages:		$packages
-	    --	Uptime:			$(uptime -p)
-
-	------------------------------------------------------
-			To Quit Press "q"
-
+		${COLOR1}------------------------------------------------------${RST}
+		${COLOR1}		To Quit Press "q"${RST}
+	
 	EOF
 	)
-	
+
 	echo "$logo" > /tmp/qf_logo.txt
 	echo "$info" > /tmp/qf_info.txt
 	
-	paste /tmp/qf_logo.txt /tmp/qf_info.txt | awk -F'\t' '{
-	    rest = $2
-	    for (i = 3; i <= NF; i++) rest = rest "\t" $i
-	    printf "\033[1;36m%-40s\033[0m%s\n", $1, rest
-	}'
+	max_width=$(echo "$logo" | sed 's/\x1b\[[0-9;]*m//g' | awk '{ if (length($0) > max) max = length($0) } END { print max + 4 }')
 
+	paste /tmp/qf_logo.txt /tmp/qf_info.txt | awk -F'\t' -v width="$max_width" '{
+		rest = $2
+		for (i = 3; i <= NF; i++) rest = rest "\t" $i
+		plain = $1
+		gsub(/\033\[[0-9;]*m/, "", plain)
+		padding = width - length(plain)
+		if (padding < 0) padding = 0
+		printf "%s%*s%s\n", $1, padding, "", rest
+	}'
 	read -t 3 -n 1 taste
 	if [ "$taste" = "q" ]; then
 		break
+		echo""
 	fi
 
-	sleep 3
 done
