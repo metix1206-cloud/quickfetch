@@ -1,5 +1,13 @@
 #!/bin/bash
 
+running=true
+
+waiting=1
+
+if [ "$1" = "--intervall" ] && [ -n "$2" ]; then
+	waiting="$2"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
 os=$(grep "^PRETTY_NAME=" /etc/os-release | cut -d'"' -f2)
@@ -59,7 +67,7 @@ pIP=$(curl -s ifconfig.me)
 
 kernel=$(uname -r)
 
-shell=$(ps -p $$ -o comm=)
+shell=$SHELL
 
 RES=$(if [ "$XDG_SESSION_TYPE" = "wayland" ]; then
 	wlr-randr 2>/dev/null | grep current | awk '{print $1}'
@@ -71,7 +79,36 @@ if [ -z "$RES" ]; then
 	RES="not available"
 fi
 
-while true; do
+make_bar() {
+	local percent="$1"
+	local label="$2"
+	local totalbar="${3:-10}"
+	local filled=$(awk "BEGIN { printf \"%.0f\", ($percent/100)*$totalbar }")
+	local empty=$(( totalbar - filled ))
+	local bar=""; for i in $(seq 1 $filled); do bar+="${COLOR1}█${RST}"; done
+	for i in $(seq 1 $empty); do bar+="-"; done
+	echo "[ $bar ] $label"
+}
+
+while $running; do
+	
+	ram_used=$(free -m | awk 'NR==2 {printf "%.1f", $3/1024}')
+	ram_total=$(free -m | awk 'NR==2 {printf "%.1f", $2/1024}')
+	ram_percent=$(awk "BEGIN { print ($ram_used/$ram_total)*100 }")
+	ram_bar=$(make_bar "$ram_percent" "${ram_used}/${ram_total}")
+
+	disk_used=$(df -BG / | awk 'NR==2 {gsub("G","",$3); print $3}')
+	disk_total=$(df -BG / | awk 'NR==2 {gsub("G","",$2); print $2}')
+	disk_percent=$(awk "BEGIN { print ($disk_used/$disk_total)*100 }")
+	disk_bar=$(make_bar "$disk_percent" "${disk_used}/${disk_total}")
+
+	battery=$(cat /sys/class/power_supply/BAT0/capacity)
+	power_bar=$(make_bar "$battery" "${battery}%")
+
+	if [ "$1" = "--once" ]; then
+		running=false
+	fi
+
 	clear
 	huser="$(whoami)@$HOSTNAME"
 	lengh=${#huser}
@@ -126,12 +163,12 @@ while true; do
 		    --	PUBLIC-IP:		$pIP
 	
 		${COLOR1}HARDWARE-INFO${RST}
-		    --	Disk:			$(df -h / | awk 'NR==2 {print $3 " / " $2}')
-		    --	RAM:			$(free -h | awk 'NR==2 {print $3 " / " $2}')
+		    --	Disk:			$disk_bar
+		    --	RAM:			$ram_bar
+		    --	Power:			$power_bar $charging
 		    --	CPU:			$(grep 'model name' /proc/cpuinfo | head -1 | cut -d':' -f2 | xargs) ($(nproc) cores)
 		    --	CPU-architecture:	$(uname -m)
 		    --	Res:			$RES
-		    --	Power:			$(cat /sys/class/power_supply/BAT0/capacity)% $charging
 		
 		${COLOR1}SESSION-INFO${RST}
 		    --	WM:			$XDG_CURRENT_DESKTOP
@@ -160,10 +197,10 @@ while true; do
 		if (padding < 0) padding = 0
 		printf "%s%*s%s\n", $1, padding, "", rest
 	}'
-	read -t 3 -n 1 taste
+	read -t "$waiting" -n 1 taste
 	if [ "$taste" = "q" ]; then
 		break
 		echo""
 	fi
-
+	sleep $waiting
 done

@@ -60,12 +60,8 @@ This project is licensed under the MIT License, see [LICENSE](LICENSE).
 
 ## Updates
 
-- Automatic color recognition for every logo
-- Showing if AC is plugged in
-- disables live-update-mode with "q"
+- Refined Bars
 
 ## Fixes
 
-- Fixed local IP not showing
-- Fixed not showing the correct packetmanager
-- Fixed res not showing (if not found then it says "not avaidable")
+No new fixes
