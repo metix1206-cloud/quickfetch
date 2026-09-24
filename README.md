@@ -31,24 +31,39 @@ Then simply run:
 quickfetch
 ```
 
+## Uninstallation
+bash
+
+bash uninstall.sh
+
+Asks for confirmation, then removes quickfetch and its assets from ~/.local/bin.
+
 ## Usage
 
 ```bash
-quickfetch              # automatic distro detection
-quickfetch --logo arch  # manually set the logo
+quickfetch			# automatic distro detection
+quickfetch --logo arch		# manually set the logo
+quickfetch --logo list		# list all available logo names
+quickfetch --once		# show info once and exit, no live updates
+quickfetch --intervall 5	# set the update interval in seconds (default: 1)
+quickfetch --no-color		# disable colored output
+quickfetch --help		# show usage information
 ```
 
 ## Features
 
-- Automatic detection of distro, package manager, and package count (pacman / dpkg / rpm)
-- CPU, RAM, disk, uptime, local & public IP
-- ASCII logo matching the detected distro
-- Live-update mode (refreshes automatically)
+- Automatic distro detection with the matching original logo color (540+ distros supported, colors sourced from fastfetch)
+- Live progress bars for RAM, disk, and battery usage
+- Automatic detection of installed package managers and package counts (pacman, dnf, apt, dpkg, flatpak, zypper)
+- Local and public IP detection with IPv4/IPv6 fallback chain
+- Battery and AC-adapter status, auto-detected (not hardcoded to BAT0/AC)
+- Screen resolution detection for both X11 (xrandr) and Wayland (wlr-randr, kscreen-doctor)
+- Live-update mode with adjustable interval, press q to quit at any time
 
 ## Known limitations (Beta)
 
-- Resolution display on Wayland only works with `wlr-randr`-compatible compositors (e.g. Sway, Hyprland) – not currently supported on GNOME/KDE
-- Battery display assumes `/sys/class/power_supply/BAT0/`; won't work with a different naming (e.g. `BAT1`) or on desktop PCs without a battery
+- Resolution detection on Wayland works with wlr-randr-compatible compositors (e.g. Sway, Hyprland) and KDE (kscreen-doctor); GNOME Wayland is not yet supported
+- A handful of logos using 256-color or RGB color codes fall back to a default color instead of their exact original shade
 
 ## Credits
 
@@ -60,8 +75,9 @@ This project is licensed under the MIT License, see [LICENSE](LICENSE).
 
 ## Updates
 
-- Refined Bars
+- added an "uninstall.sh"
+- more flags
 
 ## Fixes
 
-No new fixes
+- Battery-type
