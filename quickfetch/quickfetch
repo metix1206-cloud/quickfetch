@@ -6,6 +6,7 @@ waiting=1
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
+<<<<<<< HEAD
 if [ -f /etc/os-release ]; then
 	os=$(grep "^PRETTY_NAME=" /etc/os-release | cut -d'"' -f2)
 	os_id=$(grep "^ID=" /etc/os-release | cut -d'=' -f2 | tr -d '"')
@@ -13,6 +14,56 @@ else
 	os="Unknown Linux"
 	os_id="Unknown"
 fi
+=======
+os=$(grep "^PRETTY_NAME=" /etc/os-release | cut -d'"' -f2)
+
+os_id=$(grep "^ID=" /etc/os-release | cut -d'=' -f2 | tr -d '"')
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--no-color)
+			nocolor=true
+			shift
+			;;
+		--intervall)
+			waiting="$2"
+			shift 2
+			;;
+		--logo)
+			if [ "$2" = "list" ]; then
+				clear
+				find "$SCRIPT_DIR/assets_quickfetch" -name "*.txt" -exec basename {} .txt \; | sort
+				exit 0
+			fi
+			os_id="$2"
+			shift 2
+			;;
+		--once)
+			running=false
+			shift
+			;;
+		--help)
+			cat <<- EOF
+			quickfetch - a simple system info tool
+
+			Usage:
+			  quickfetch [OPTION]
+
+			Options:
+			  --logo <name>		use a specific logo instead of auto-detection
+			  --once		show info once and exit, no live updates
+			  --intervall <sec>	set update interval in seconds (default: 1)
+			  --help		show this help message
+			  --no-color		disables the color
+			EOF
+			exit 0
+			;;
+		*)
+			shift
+			;;
+	esac
+done
+>>>>>>> 9cf2765294129195b46d95cd9fe2a96d0fc7d0a0
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in
@@ -119,6 +170,7 @@ kernel=$(uname -r)
 
 shell=$SHELL
 
+<<<<<<< HEAD
 RES=$(
 	if [ "$XDG_SESSION_TYPE" = "wayland" ]; then
 		r=""
@@ -140,6 +192,17 @@ RES=$(
 		xrandr 2>/dev/null | grep " connected" | head -1 | grep -oP '\d+x\d+'
 	fi
 )
+=======
+RES=$(if [ "$XDG_SESSION_TYPE" = "wayland" ]; then
+	r=$(wlr-randr 2>/dev/null | grep current | awk '{print $1}')
+	if [ -z "$r" ] && command -v kscreen-doctor &> /dev/null; then
+		r=$(kscreen-doctor -o 2>/dev/null | grep -oP '\d+x\d+' | head -1)
+	fi
+	echo "$r"
+else
+	xrandr 2>/dev/null | grep " connected" | head -1 | grep -oP '\d+x\d+'
+fi)
+>>>>>>> 9cf2765294129195b46d95cd9fe2a96d0fc7d0a0
 
 if [ -z "$RES" ]; then
 	RES="not available"
@@ -159,6 +222,7 @@ make_bar() {
 bat_path=$(find /sys/class/power_supply -maxdepth 1 -iname "BAT*" | head -1)
 ac_path=$(find /sys/class/power_supply -maxdepth 1 \( -iname "AC*" -o -iname "ADP*" \) | head -1)
 
+<<<<<<< HEAD
 while true; do
 
 	temp_path=""
@@ -183,6 +247,10 @@ while true; do
 		temp_c="not available"
 	fi
 
+=======
+while $running; do
+	
+>>>>>>> 9cf2765294129195b46d95cd9fe2a96d0fc7d0a0
 	if [ -n "$bat_path" ] && [ -f "$bat_path/capacity" ]; then
 		battery=$(cat "$bat_path/capacity")
 	else
@@ -209,6 +277,7 @@ while true; do
 	disk_percent=$(awk "BEGIN { if ($disk_total > 0) print ($disk_used/$disk_total)*100; else print 0 }")
 	disk_bar=$(make_bar "$disk_percent" "${disk_used}g/${disk_total}g")
 
+<<<<<<< HEAD
 	swap_used=$(free -m | awk 'NR==3 {printf "%.1f", $3/1024}')
 	swap_total=$(free -m | awk 'NR==3 {printf "%.1f", $2/1024}')
 	swap_percent=$(awk "BEGIN { if ($swap_total > 0) print ($swap_used/$swap_total)*100; else print 0 }")
@@ -216,6 +285,14 @@ while true; do
 
 	power_bar=$(make_bar "$battery" "${battery}%")
 
+=======
+	power_bar=$(make_bar "$battery" "${battery}%")
+
+	if [ "$1" = "--once" ]; then
+		running=false
+	fi
+
+>>>>>>> 9cf2765294129195b46d95cd9fe2a96d0fc7d0a0
 	clear
 	huser="$(whoami)@$HOSTNAME"
 	lengh=${#huser}
@@ -288,10 +365,16 @@ while true; do
 	
 		${COLOR1}HARDWARE-INFO${RST}
 		    --	Disk:			${disk_bar}
+<<<<<<< HEAD
 		    -- Swap:			$swap_bar
 		    --	RAM:			$ram_bar
 		    --	Power:			$power_bar $charging
 		    --	CPU:			$cpu_name ($(nproc) cores)
+=======
+		    --	RAM:			$ram_bar
+		    --	Power:			$power_bar $charging
+		    --	CPU:			$(grep 'model name' /proc/cpuinfo | head -1 | cut -d':' -f2 | xargs) ($(nproc) cores)
+>>>>>>> 9cf2765294129195b46d95cd9fe2a96d0fc7d0a0
 		    --	CPU-architecture:	$(uname -m)
 		    -- Temp:			${temp_c}°C
 		    --	Res:			$RES
@@ -328,9 +411,12 @@ while true; do
 		break
 		echo""
 	fi
+<<<<<<< HEAD
 	
 	if [ "$once_mode" = "true" ]; then
 		break
 	fi 
 
+=======
+>>>>>>> 9cf2765294129195b46d95cd9fe2a96d0fc7d0a0
 done
